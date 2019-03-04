@@ -19,6 +19,8 @@ double elapsedTime;
 double timeFactor = 100000.0;
 
 double gravity = 9.8;
+
+
 double springStiffness = 500;
 double springDampening = 10;
 double springRestLength = 0.5;
@@ -34,7 +36,7 @@ PVector sphereVelocity = new PVector(0,0,0);
 PVector sphereInitialPosition = spherePosition.copy();
 double sphereRadius = 2.5;
 double speedDelta = 0.25;
-float maxSpeed = 1.0;
+float maxSpeed = 2.0;
 
 PImage img;
 
@@ -128,10 +130,13 @@ void setup() {
   img = loadImage("data/wave.jpg");
   
   println("Press P toggle pausing.");
+  println("Press B to toggle debug view.");
+  println("Press F to toggle frame rate reporting.");
   println("Press space to reset simulation.");
-  println("Press arrow keys to change velocity of ball.");
+  
   println("Up/Down arrows change x velocity.");
   println("Left/Right arrows change z velocity.");
+  println("X/Z keys change y velocity.");
   
   // Initialize time
   previousTime = millis();
@@ -225,12 +230,6 @@ public class Spring {
 void updateSim(double dt) {
   //println("New timestep");
   
-  // Move sphere
-  PVector delta = sphereVelocity.copy();
-  delta.mult((float)dt);
-  spherePosition.add(delta);
-  delta = null;
-  
   if (paused) {
     return;
   }
@@ -250,16 +249,17 @@ void updateSim(double dt) {
     p.forces.y += gravity * p.mass;
   }
   
-  // Update particle velocities and positions
-  for (Particle p : particles) {
-    // Keep anchors fixed
-    if (anchors.contains(p)) {
-      p.forces.set(0,0,0);
-      p.velocity.set(0,0,0);
+  // Calculate air resistance
+  for (int i = 0; i < threadLength-1; i++) {
+    for (int j = 0; j < threadLength-1; j++) {
     }
-    p.Update(dt);
-    //println("Position " + p.position);
   }
+  
+  // Move sphere
+  PVector delta = sphereVelocity.copy();
+  delta.mult((float)dt);
+  spherePosition.add(delta);
+  delta = null;
   
   // Handle collisions between cloth and ball
   for (Particle p : particles) {
@@ -271,13 +271,43 @@ void updateSim(double dt) {
       PVector.add(spherePosition,ray,p.position);
       
       // Move sphere? TODO
+      ray.setMag(0.01);
+      sphereVelocity.sub(ray);
+      if (sphereVelocity.x > maxSpeed) {
+        sphereVelocity.x = maxSpeed;
+      } else if (sphereVelocity.x < -maxSpeed) {
+        sphereVelocity.x = -maxSpeed;
+      }
+      
+      if (sphereVelocity.y > maxSpeed) {
+        sphereVelocity.y = maxSpeed;
+      } else if (sphereVelocity.y < -maxSpeed) {
+        sphereVelocity.y = -maxSpeed;
+      }
+      
+      if (sphereVelocity.z > maxSpeed) {
+        sphereVelocity.z = maxSpeed;
+      } else if (sphereVelocity.z < -maxSpeed) {
+        sphereVelocity.z = -maxSpeed;
+      }
       
       // Reflect velocity
       ray.normalize();
       dotProduct = ray.dot(p.velocity);
-      ray.setMag((float)(dotProduct*1.9));
+      ray.setMag((float)(dotProduct*2));
       p.velocity.sub(ray);
     }
+  }
+  
+  // Update particle velocities and positions
+  for (Particle p : particles) {
+    // Keep anchors fixed
+    if (anchors.contains(p)) {
+      p.forces.set(0,0,0);
+      p.velocity.set(0,0,0);
+    }
+    p.Update(dt);
+    //println("Position " + p.position);
   }
 }
 
@@ -384,6 +414,20 @@ void keyPressed() {
       break;
     case 'f':
       showFrameRate = !showFrameRate;
+    case 'x':
+      sphereVelocity.y += speedDelta;
+      if (sphereVelocity.y > maxSpeed) {
+        sphereVelocity.y = maxSpeed;
+      }
+      println("Sphere velocity: " + sphereVelocity);
+      break;
+    case 'z':
+      sphereVelocity.y -= speedDelta;
+      if (sphereVelocity.y < -maxSpeed) {
+        sphereVelocity.y = -maxSpeed;
+      }
+      println("Sphere velocity: " + sphereVelocity);
+      break;
     case CODED:
       switch(keyCode) {
         case UP:

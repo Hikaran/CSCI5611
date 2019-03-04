@@ -11,6 +11,7 @@ ArrayList<Particle> anchors = new ArrayList<Particle>();
 
 boolean paused = true;
 boolean debug = false;
+boolean showFrameRate = true;
 
 double previousTime;
 double currentTime;
@@ -18,18 +19,22 @@ double elapsedTime;
 double timeFactor = 100000.0;
 
 double gravity = 9.8;
-double springStiffness = 200;
-double springDampening = 1;
-double springRestLength = 1.0;
-double springInitialLength = 1.0;
+double springStiffness = 500;
+double springDampening = 500;
+double springRestLength = 0.5;
+double springInitialLength = 0.5;
 
 int threadLength = 30;
 int loopCount = 50;
 
 double floor = 500.0;
 
-PVector spherePosition = new PVector(20,20,20);
-double sphereRadius = 5.0;
+PVector spherePosition = new PVector(10,10,10);
+PVector sphereVelocity = new PVector(0,0,0);
+PVector sphereInitialPosition = spherePosition.copy();
+double sphereRadius = 2.5;
+double speedDelta = 0.5;
+float maxSpeed = 2.0;
 
 PImage img;
 
@@ -42,7 +47,7 @@ void setup() {
   textureMode(NORMAL);
   
   cam = new QueasyCam(this);
-  cam.speed = 1;
+  cam.speed = 0.1;
   
   // Set up particles
   for (int i = 0; i < threadLength; i++) {
@@ -93,14 +98,14 @@ void setup() {
   // Third order springs
   for (int i = 0; i < threadLength-5; i++) {
     for (int j = 0; j < threadLength; j++) {
-      Spring newSpring = new Spring(springStiffness/10, springDampening, springRestLength*5,particles.get(j*threadLength+i),particles.get(j*threadLength+i+5));
+      Spring newSpring = new Spring(springStiffness/4, springDampening, springRestLength*5,particles.get(j*threadLength+i),particles.get(j*threadLength+i+5));
       springs.add(newSpring);
     }
   }
   
   for (int i = 0; i < threadLength; i++) {
     for (int j = 0; j < threadLength-5; j++) {
-      Spring newSpring = new Spring(springStiffness/10, springDampening, springRestLength*5,particles.get(j*threadLength+i),particles.get((j+5)*threadLength+i));
+      Spring newSpring = new Spring(springStiffness/4, springDampening, springRestLength*5,particles.get(j*threadLength+i),particles.get((j+5)*threadLength+i));
       springs.add(newSpring);
     }
   }
@@ -108,14 +113,14 @@ void setup() {
   // Fourth order springs
   for (int i = 0; i < threadLength-10; i++) {
     for (int j = 0; j < threadLength; j++) {
-      Spring newSpring = new Spring(springStiffness/20, springDampening, springRestLength*10,particles.get(j*threadLength+i),particles.get(j*threadLength+i+10));
+      Spring newSpring = new Spring(springStiffness/8, springDampening, springRestLength*10,particles.get(j*threadLength+i),particles.get(j*threadLength+i+10));
       springs.add(newSpring);
     }
   }
   
   for (int i = 0; i < threadLength; i++) {
     for (int j = 0; j < threadLength-10; j++) {
-      Spring newSpring = new Spring(springStiffness/20, springDampening, springRestLength*10,particles.get(j*threadLength+i),particles.get((j+10)*threadLength+i));
+      Spring newSpring = new Spring(springStiffness/8, springDampening, springRestLength*10,particles.get(j*threadLength+i),particles.get((j+10)*threadLength+i));
       springs.add(newSpring);
     }
   }
@@ -123,7 +128,10 @@ void setup() {
   img = loadImage("data/wave.jpg");
   
   println("Press P toggle pausing.");
-  println("Press space to reset.");
+  println("Press space to reset simulation.");
+  println("Press arrow keys to change velocity of ball.");
+  println("Up/Down arrows change x velocity.");
+  println("Left/Right arrows change z velocity.");
   
   // Initialize time
   previousTime = millis();
@@ -217,9 +225,16 @@ public class Spring {
 void updateSim(double dt) {
   //println("New timestep");
   
+  // Move sphere
+  PVector delta = sphereVelocity.copy();
+  delta.mult((float)dt);
+  spherePosition.add(delta);
+  delta = null;
+  
   if (paused) {
     return;
   }
+  
   // Reset forces
   for (Particle p : particles) {
     p.forces.set(0,0,0);
@@ -250,15 +265,17 @@ void updateSim(double dt) {
   for (Particle p : particles) {
     PVector.sub(p.position, spherePosition, ray);
     
-    if (ray.mag() < (sphereRadius+0.1)) {
+    if (ray.mag() < (sphereRadius+0.2)) {
       // Move point back outside sphere
-      ray.setMag((float)(sphereRadius+0.1));
+      ray.setMag((float)(sphereRadius+0.2));
       PVector.add(spherePosition,ray,p.position);
+      
+      // Move sphere? TODO
       
       // Reflect velocity
       ray.normalize();
       dotProduct = ray.dot(p.velocity);
-      ray.setMag((float)(dotProduct*2));
+      ray.setMag((float)(dotProduct*1.9));
       p.velocity.sub(ray);
     }
   }
@@ -343,21 +360,60 @@ void draw() {
   
   drawSim();
   
-  if (!paused) {
+  if (!paused && showFrameRate) {
     // Benchmarking
     println("Frame Rate: " + frameRate);
   }
 }
 
 void keyPressed() {
-  if (key == ' ') {
-    for (Particle p : particles) {
-      p.position.set(p.initialPosition);
-      p.velocity.set(0,0,0);
-    }
-  } else if (key == 'p') {
-    paused = !paused;
-  } else if (key == 'b') {
-    debug = !debug;
+  switch (key) {
+    case ' ':
+      for (Particle p : particles) {
+        p.position.set(p.initialPosition);
+        p.velocity.set(0,0,0);
+      }
+      spherePosition.set(sphereInitialPosition);
+      sphereVelocity.set(0,0,0);
+      break;
+    case 'p':
+      paused = !paused;
+      break;
+    case 'b':
+      debug = !debug;
+      break;
+    case 'f':
+      showFrameRate = !showFrameRate;
+    case CODED:
+      switch(keyCode) {
+        case UP:
+          sphereVelocity.x += speedDelta;
+          if (sphereVelocity.x > maxSpeed) {
+            sphereVelocity.x = maxSpeed;
+          }
+          println("Sphere velocity: " + sphereVelocity);
+          break;
+        case DOWN:
+          sphereVelocity.x -= speedDelta;
+          if (sphereVelocity.x < -maxSpeed) {
+            sphereVelocity.x = -maxSpeed;
+          }
+          println("Sphere velocity: " + sphereVelocity);
+          break;
+        case LEFT:
+          sphereVelocity.z += speedDelta;
+          if (sphereVelocity.z > maxSpeed) {
+            sphereVelocity.z = maxSpeed;
+          }
+          println("Sphere velocity: " + sphereVelocity);
+          break;
+        case RIGHT:
+          sphereVelocity.z -= speedDelta;
+          if (sphereVelocity.z < -maxSpeed) {
+            sphereVelocity.z = -maxSpeed;
+          }
+          println("Sphere velocity: " + sphereVelocity);
+          break;
+      }
   }
 }

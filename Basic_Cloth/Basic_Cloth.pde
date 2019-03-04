@@ -20,7 +20,7 @@ double timeFactor = 100000.0;
 
 double gravity = 9.8;
 double springStiffness = 500;
-double springDampening = 500;
+double springDampening = 10;
 double springRestLength = 0.5;
 double springInitialLength = 0.5;
 
@@ -33,8 +33,8 @@ PVector spherePosition = new PVector(10,10,10);
 PVector sphereVelocity = new PVector(0,0,0);
 PVector sphereInitialPosition = spherePosition.copy();
 double sphereRadius = 2.5;
-double speedDelta = 0.5;
-float maxSpeed = 2.0;
+double speedDelta = 0.25;
+float maxSpeed = 1.0;
 
 PImage img;
 

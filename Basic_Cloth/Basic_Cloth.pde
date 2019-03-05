@@ -19,7 +19,7 @@ double elapsedTime;
 double timeFactor = 100000.0;
 
 double gravity = 9.8;
-double combinedAirResistanceFactor = 0.01;
+double combinedAirResistanceFactor = 0.001;
 
 double springStiffness = 500;
 double springDampening = 10;
@@ -28,6 +28,7 @@ double springInitialLength = 0.5;
 
 int threadLength = 30;
 int loopCount = 50;
+int numLoops = 0;
 
 double floor = 500.0;
 
@@ -35,8 +36,8 @@ PVector spherePosition = new PVector(10,10,10);
 PVector sphereVelocity = new PVector(0,0,0);
 PVector sphereInitialPosition = spherePosition.copy();
 double sphereRadius = 2.5;
-double speedDelta = 0.25;
-float maxSpeed = 2.0;
+double speedDelta = 1.0;
+float maxSpeed = 5.0;
 
 PImage img;
 
@@ -209,14 +210,14 @@ public class Spring {
     delta.sub(this.secondEnd.position);    
     double springForce = -k * (delta.mag() - this.restLen);
     delta.normalize();
-    unit = delta.copy();
+    unit.set(delta);
     delta.mult((float)springForce);
     
     this.firstEnd.forces.add(delta);
     this.secondEnd.forces.sub(delta);
     
     // F = -kv
-    delta = this.firstEnd.velocity.copy();
+    delta.set(this.firstEnd.velocity);
     delta.sub(this.secondEnd.velocity);
     // Get velocity in direction of spring
     dotProduct = PVector.dot(unit,delta);
@@ -259,7 +260,7 @@ void updateSim(double dt) {
   // Calculate air resistance
   for (int i = 0; i < threadLength-1; i++) {
     for (int j = 0; j < threadLength-1; j++) {
-      int current = i*threadLength+j; //<>//
+      int current = i*threadLength+j;
 
       // Air resistance for first triangle in quad
       // Get average velocity of nodes
@@ -268,16 +269,25 @@ void updateSim(double dt) {
       avgVelocity.add(particles.get(current+threadLength).velocity);
       avgVelocity.div(3.0);
       
+      if (avgVelocity.mag() == 0.0) {
+        continue;
+      }
+      
       // Calculate normal vector of triangle
-      u = positions.get(current).copy();
+      u.set(positions.get(current));
       u.sub(positions.get(current+1));
-      v = positions.get(current).copy();
+      v.set(positions.get(current));
       v.sub(positions.get(current+threadLength));
       u.cross(v,normal);
+      
+      if (normal.mag() == 0.0) {
+        continue;
+      }
             
       // dotProduct = v dot normal
       dotProduct = avgVelocity.dot(normal);
       result = -combinedAirResistanceFactor*avgVelocity.mag()*avgVelocity.mag()*dotProduct;
+      println("loop "+numLoops+" i "+i+" j "+j+" "+dotProduct);
       
       // F = -0.5*p*c_d*|v|^2*a*n
       normal.normalize();
@@ -286,13 +296,15 @@ void updateSim(double dt) {
       particles.get(current+1).forces.add(ray);
       particles.get(current+threadLength).forces.add(ray);
       
+      println("loop "+numLoops+" i "+i+" j "+j+" "+ray);
+      
       // Air resistance for second triangle in quad
     }
   }
   */
   
   // Move sphere
-  PVector delta = sphereVelocity.copy();
+  PVector delta = sphereVelocity.copy(); //<>//
   delta.mult((float)dt);
   spherePosition.add(delta);
   delta = null;
@@ -306,8 +318,8 @@ void updateSim(double dt) {
       ray.setMag((float)(sphereRadius+0.2));
       PVector.add(spherePosition,ray,p.position);
       
-      // Move sphere? TODO
-      ray.setMag(0.01);
+      // Move sphere
+      ray.setMag(0.1);
       sphereVelocity.sub(ray);
       if (sphereVelocity.x > maxSpeed) {
         sphereVelocity.x = maxSpeed;

@@ -286,7 +286,9 @@ void updateSim(double dt) {
             
       // dotProduct = v dot normal
       dotProduct = avgVelocity.dot(normal);
-      result = -combinedAirResistanceFactor*avgVelocity.mag()*avgVelocity.mag()*dotProduct;
+      
+      // result = -factor*|v|*(v dot normal)
+      result = -combinedAirResistanceFactor*avgVelocity.mag()*dotProduct;
       println("loop "+numLoops+" i "+i+" j "+j+" "+dotProduct);
       
       // F = -0.5*p*c_d*|v|^2*a*n

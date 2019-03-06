@@ -139,11 +139,11 @@ void setup() {
   println("Press P toggle pausing.");
   println("Press B to toggle debug view.");
   println("Press F to toggle frame rate reporting.");
-  println("Press space to reset simulation.");
-  
-  println("Up/Down arrows change x velocity.");
-  println("Left/Right arrows change z velocity.");
-  println("X/Z keys change y velocity.");
+  println("Press space to reset simulation to initial conditions.");
+  println("Up/Down arrows change x velocity of sphere.");
+  println("Left/Right arrows change z velocity of sphere.");
+  println("X/Z keys change y velocity of sphere.");
+  println("Control camera with WASD as well as Q and E keys.");
   
   // Initialize time
   previousTime = millis();

@@ -67,26 +67,46 @@ void updateSim(double dt) {
     return;
   }
 
-  // Partial derivatives in x direction
+  // Update height
   for (int i = 0; i < dimension; i++) {
     for (int j = 1; j < dimension-1; j++) {
       h[i][j] -= dt/dx*(hu[i][j+1]-hu[i][j]);
+    }
+  }
+  
+  for (int i = 1; i < dimension-1; i++) {
+    for (int j = 0; j < dimension; j++) {
+      h[i][j] -= dt/dx*(hv[i+1][j]-hv[i][j]);
+    }
+  }
+  
+  // Update momentum in x direction
+  for (int i = 0; i < dimension; i++) {
+    for (int j = 1; j < dimension-1; j++) {
       hu[i][j] -= dt/dx*(hu[i][j+1]*hu[i][j+1]/h[i][j+1]-hu[i][j]*hu[i][j]/h[i][j]
                         +0.5*g*(h[i][j+1]*h[i][j+1]-h[i][j]*h[i][j])
                         +damp*hu[i][j]);
+    }
+  }
+  
+  for (int i = 1; i < dimension-1; i++) {
+    for (int j = 0; j < dimension; j++) {
+      hu[i][j] -= dt/dx*(hu[i+1][j]*hv[i+1][j]/h[i+1][j]-hu[i][j]*hv[i][j]/h[i][j]);
+    }
+  }
+  
+  // Update momentum in z direction
+  for (int i = 0; i < dimension; i++) {
+    for (int j = 1; j < dimension-1; j++) {
       hv[i][j] -= dt/dx*(hu[i][j+1]*hv[i][j+1]/h[i][j+1]-hu[i][j]*hv[i][j]/h[i][j]);
     }
   }
   
-  // Partial derivatives in z direction
   for (int i = 1; i < dimension-1; i++) {
     for (int j = 0; j < dimension; j++) {
-      h[i][j] -= dt/dx*(hv[i+1][j]-hv[i][j]);
       hv[i][j] -= dt/dx*(hv[i+1][j]*hv[i+1][j]/h[i+1][j]-hv[i][j]*hv[i][j]/h[i][j]
                         +0.5*g*(h[i+1][j]*h[i+1][j]-h[i][j]*h[i][j])
                         +damp*hv[i][j]);
-      hu[i][j] -= dt/dx*(hu[i+1][j]*hv[i+1][j]/h[i+1][j]-hu[i][j]*hv[i][j]/h[i][j]
-);
     }
   }
 

@@ -35,6 +35,7 @@ double[][] hmz = new double[dimension-1][dimension]; // height midpoints in z di
 double[][] hvmx = new double[dimension][dimension-1]; // z-momentum midpoints in x direction
 double[][] hvmz = new double[dimension-1][dimension]; // z-momentum midpoints in z direction
 
+double[][] blue = new double[dimension][dimension]; // blue color component of each cell
 
 void setup() {
   size(1000,600,P3D);
@@ -62,13 +63,53 @@ void setup() {
       h[dimension-10+i][dimension-10+j] += 5*(i+j);
     }
   }
-    
+  
+  // Set cell colors
+  for (int i = 0; i < dimension; i++) {
+    for (int j = 0; j < dimension; j++) {
+      blue[i][j] = 155+(i*j)%100;
+    }
+  }
+  
+  println("Press space to reset simulation to initial conditions.");
   println("Press P toggle pausing.");
   println("Press B to toggle debug view.");
   println("Press F to toggle frame rate reporting.");
+  println("Control camera with WASD as well as Q and E keys.");
   
   // Initialize time
   previousTime = millis();
+}
+
+void resetSim() {
+  // Set initial conditions of waves
+  for (int i = 0; i < dimension; i++) {
+    for (int j = 0; j < dimension; j++) {
+      if (j > 0 && j < 5) {
+        h[i][j]=120-5*j;
+      } else if (j == 0) {
+        h[i][j]=115;
+      } else {
+        h[i][j]=100;
+      }
+      x[i][j]=j*dx;
+      z[i][j]=i*dx;
+    }
+  }
+  
+  for (int i = 0; i < 10; i++) {
+    for (int j = 0; j < 10; j++) {
+      h[dimension-10+i][dimension-10+j] += 5*(i+j);
+    }
+  }
+  
+  // Zero out momentums
+  for (int i = 0; i < dimension; i++) {
+    for (int j = 0; j < dimension; j++) {
+      hu[i][j] = 0;
+      hv[i][j] = 0;
+    }
+  }
 }
 
 void updateSim(double dt) {
@@ -162,31 +203,67 @@ void drawSim() {
     }
   } else {
     noStroke();
-    // Draw with triangles
+    // Draw surface with triangles
     for (int i = 0; i < dimension-1; i++) {
       for (int j = 0; j < dimension-1; j++) {
         beginShape(TRIANGLE_STRIP);
-        fill(50,100,(i*j)%255);
+        fill(50,100,(float)blue[i][j]);
         vertex((float)x[i][j],(float)-h[i][j],(float)z[i][j]);
         vertex((float)x[i][j+1],(float)-h[i][j+1],(float)z[i][j+1]);
+        fill(50,100,(float)blue[i+1][j+1]);
         vertex((float)x[i+1][j],(float)-h[i+1][j],(float)z[i+1][j]);
         vertex((float)x[i+1][j+1],(float)-h[i+1][j+1],(float)z[i+1][j+1]);
         endShape();
       }
     }
+    
+    // Draw sides to give illusion of depth
+    for (int i = 0; i < dimension-1; i++) {
+      beginShape(TRIANGLE_STRIP);
+      fill(50,100,150);
+      vertex((float)x[i][0],(float)-h[i][0],(float)z[i][0]);
+      vertex((float)x[i+1][0],(float)-h[i+1][0],(float)z[i+1][0]);
+      fill(0);
+      vertex((float)x[i][0],0,(float)z[i][0]);
+      vertex((float)x[i+1][0],0,(float)z[i+1][0]);
+      endShape();
+      
+      beginShape(TRIANGLE_STRIP);
+      fill(50,100,150);
+      vertex((float)x[i][dimension-1],(float)-h[i][dimension-1],(float)z[i][dimension-1]);
+      vertex((float)x[i+1][dimension-1],(float)-h[i+1][dimension-1],(float)z[i+1][dimension-1]);
+      fill(0);
+      vertex((float)x[i][dimension-1],0,(float)z[i][dimension-1]);
+      vertex((float)x[i+1][dimension-1],0,(float)z[i+1][dimension-1]);
+      endShape();
+      
+      beginShape(TRIANGLE_STRIP);
+      vertex((float)x[i][0],0,(float)z[i][0]);
+      vertex((float)x[i+1][0],0,(float)z[i+1][0]);
+      vertex((float)x[i][dimension-1],0,(float)z[i][dimension-1]);
+      vertex((float)x[i+1][dimension-1],0,(float)z[i+1][dimension-1]);
+      endShape();
+    }
+    for (int j = 0; j < dimension-1; j++) {
+      beginShape(TRIANGLE_STRIP);
+      fill(50,100,150);
+      vertex((float)x[0][j],(float)-h[0][j],(float)z[0][j]);
+      vertex((float)x[0][j+1],(float)-h[0][j+1],(float)z[0][j+1]);
+      fill(0);
+      vertex((float)x[0][j],0,(float)z[0][j]);
+      vertex((float)x[0][j+1],0,(float)z[0][j+1]);
+      endShape();
+      
+      beginShape(TRIANGLE_STRIP);
+      fill(50,100,150);
+      vertex((float)x[dimension-1][j],(float)-h[dimension-1][j],(float)z[dimension-1][j]);
+      vertex((float)x[dimension-1][j+1],(float)-h[dimension-1][j+1],(float)z[dimension-1][j+1]);
+      fill(0);
+      vertex((float)x[dimension-1][j],0,(float)z[dimension-1][j]);
+      vertex((float)x[dimension-1][j+1],0,(float)z[dimension-1][j+1]);
+      endShape();
+    }
   }
-  
-  /**
-  // Draw bounding box
-  pushMatrix();
-  noStroke();
-  noFill();
-  translate(0,(float)floor,0);
-  stroke(0);
-  strokeWeight(1);
-  box(500,500,500);
-  popMatrix();
-  */
 }
 
 void draw() {
@@ -213,6 +290,7 @@ void draw() {
 void keyPressed() {
   switch (key) {
     case ' ':
+      resetSim();
       break;
     case 'p':
       paused = !paused;

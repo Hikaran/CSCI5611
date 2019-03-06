@@ -19,19 +19,21 @@ double dx = 1;
 double damp = 0.1;
 
 int dimension = 102;
-double[][] h = new double[dimension][dimension];
-double[][] hu = new double[dimension][dimension];
-double[][] hv = new double[dimension][dimension];
+double[][] h = new double[dimension][dimension]; // cell heights
+double[][] hu = new double[dimension][dimension]; // momentum in x direction
+double[][] hv = new double[dimension][dimension]; // momentum in z direction
 
 // Cell locations
 double[][] x = new double[dimension][dimension];
 double[][] z = new double[dimension][dimension];
 
 // Midpoint arrays
-double[][] hmx = new double[dimension][dimension-1];
-double[][] hum = new double[dimension][dimension-1];
-double[][] hmz = new double[dimension-1][dimension];
-double[][] hvm = new double[dimension-1][dimension];
+double[][] hmx = new double[dimension][dimension-1]; // height midpoints in x direction
+double[][] humx = new double[dimension][dimension-1]; // x-momentum midpoints in x direction
+double[][] humz = new double[dimension-1][dimension]; // x-momentum midpoints in z direction
+double[][] hmz = new double[dimension-1][dimension]; // height midpoints in z direction
+double[][] hvmx = new double[dimension][dimension-1]; // z-momentum midpoints in x direction
+double[][] hvmz = new double[dimension-1][dimension]; // z-momentum midpoints in z direction
 
 
 void setup() {
@@ -44,14 +46,20 @@ void setup() {
   for (int i = 0; i < dimension; i++) {
     for (int j = 0; j < dimension; j++) {
       if (j > 0 && j < 5) {
-        h[i][j]=140-10*j;
+        h[i][j]=120-5*j;
       } else if (j == 0) {
-        h[i][j]=130;
+        h[i][j]=115;
       } else {
         h[i][j]=100;
       }
       x[i][j]=j*dx;
       z[i][j]=i*dx;
+    }
+  }
+  
+  for (int i = 0; i < 10; i++) {
+    for (int j = 0; j < 10; j++) {
+      h[dimension-10+i][dimension-10+j] += 5*(i+j);
     }
   }
     
@@ -72,8 +80,9 @@ void updateSim(double dt) {
   for (int i = 0; i < dimension; i++) {
     for (int j = 0; j < dimension-1; j++) {
       hmx[i][j] = 0.5*(h[i][j+1]+h[i][j]) - 0.5*dt/dx*(hu[i][j+1]-hu[i][j]);
-      hum[i][j] = 0.5*(hu[i][j+1]+hu[i][j]) - 0.5*dt/dx*(hu[i][j+1]*hu[i][j+1]/h[i][j+1]-hu[i][j]*hu[i][j]/h[i][j]
+      humx[i][j] = 0.5*(hu[i][j+1]+hu[i][j]) - 0.5*dt/dx*(hu[i][j+1]*hu[i][j+1]/h[i][j+1]-hu[i][j]*hu[i][j]/h[i][j]
                                                          +0.5*g*(h[i][j+1]*h[i][j+1]-h[i][j]*h[i][j]));
+      hvmx[i][j] = 0.5*(hv[i][j+1]+hv[i][j]) - 0.5*dt/dx*(hu[i][j+1]*hv[i][j+1]/h[i][j+1]-hu[i][j]*hv[i][j]/h[i][j]);
     }
   }
   
@@ -81,26 +90,32 @@ void updateSim(double dt) {
   for (int i = 0; i < dimension-1; i++) {
     for (int j = 0; j < dimension; j++) {
       hmz[i][j] = 0.5*(h[i+1][j]+h[i][j]) - 0.5*dt/dx*(hv[i+1][j]-hv[i][j]);
-      hvm[i][j] = 0.5*(hv[i+1][j]+hv[i][j]) - 0.5*dt/dx*(hv[i+1][j]*hv[i+1][j]/h[i+1][j]-hv[i][j]*hv[i][j]/h[i][j]
+      hvmz[i][j] = 0.5*(hv[i+1][j]+hv[i][j]) - 0.5*dt/dx*(hv[i+1][j]*hv[i+1][j]/h[i+1][j]-hv[i][j]*hv[i][j]/h[i][j]
                                                          +0.5*g*(h[i+1][j]*h[i+1][j]-h[i][j]*h[i][j]));
+      humz[i][j] = 0.5*(hu[i+1][j]+hu[i][j]) - 0.5*dt/dx*(hu[i+1][j]*hv[i+1][j]/h[i+1][j]-hu[i][j]*hv[i][j]/h[i][j]);
     }
   }
    //<>//
-  // Full step with midpoint flux in x direction
+  // Full step with x midpoint
   for (int i = 0; i < dimension; i++) {
     for (int j = 1; j < dimension-1; j++) {
-      h[i][j] -= dt/dx*(hum[i][j]-hum[i][j-1]);
-      hu[i][j] -= dt/dx*(damp*hu[i][j]+hum[i][j]*hum[i][j]/hmx[i][j]-hum[i][j-1]*hum[i][j-1]/hmx[i][j-1]
-                        +0.5*g*(hmx[i][j]*hmx[i][j]-hmx[i][j-1]*hmx[i][j-1]));
+      h[i][j] -= dt/dx*(humx[i][j]-humx[i][j-1]);
+      hu[i][j] -= dt/dx*(humx[i][j]*humx[i][j]/hmx[i][j]-humx[i][j-1]*humx[i][j-1]/hmx[i][j-1]
+                        +0.5*g*(hmx[i][j]*hmx[i][j]-hmx[i][j-1]*hmx[i][j-1])
+                        +damp*hu[i][j]);
+      hv[i][j] -= dt/dx*(humx[i][j]*hvmx[i][j]/hmx[i][j]-humx[i][j-1]*hvmx[i][j-1]/hmx[i][j-1]);
     }
   }
   
-  // Full step with midpoint flux in z direction
+  // Full step with z midpoints
   for (int i = 1; i < dimension-1; i++) {
     for (int j = 0; j < dimension; j++) {
-      h[i][j] -= dt/dx*(hvm[i][j]-hvm[i-1][j]);
-      hv[i][j] -= dt/dx*(damp+hv[i][j]+hvm[i][j]*hvm[i][j]/hmz[i][j]-hvm[i-1][j]*hvm[i-1][j]/hmz[i-1][j]
-                        +0.5*g*(hmz[i][j]*hmz[i][j]-hmz[i-1][j]*hmz[i-1][j]));
+      h[i][j] -= dt/dx*(hvmz[i][j]-hvmz[i-1][j]);
+      hv[i][j] -= dt/dx*(hvmz[i][j]*hvmz[i][j]/hmz[i][j]-hvmz[i-1][j]*hvmz[i-1][j]/hmz[i-1][j]
+                        +0.5*g*(hmz[i][j]*hmz[i][j]-hmz[i-1][j]*hmz[i-1][j])
+                        +damp*hv[i][j]);
+      hu[i][j] -= dt/dx*(humz[i][j]*hvmz[i][j]/hmz[i][j]-humz[i-1][j]*hvmz[i-1][j]/hmz[i-1][j]
+);
     }
   }
 

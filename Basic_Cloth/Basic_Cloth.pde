@@ -279,34 +279,31 @@ void updateSim(double dt) {
       v.set(positions.get(current));
       v.sub(positions.get(current+threadLength));
       u.cross(v,normal);
-      
-      if (normal.mag() == 0.0) {
-        continue;
-      }
             
       // dotProduct = v dot normal
       dotProduct = avgVelocity.dot(normal);
       
+      if (dotProduct < 0.0) {
+        dotProduct = -dotProduct;
+      }
+      
       // result = -factor*|v|*(v dot normal)
       result = -combinedAirResistanceFactor*avgVelocity.mag()*dotProduct;
-      println("loop "+numLoops+" i "+i+" j "+j+" "+dotProduct);
       
       // F = -0.5*p*c_d*|v|^2*a*n
-      normal.normalize();
+      //normal.normalize();
       PVector.mult(normal, (float) result, ray);
       particles.get(current).forces.add(ray);
       particles.get(current+1).forces.add(ray);
       particles.get(current+threadLength).forces.add(ray);
-      
-      println("loop "+numLoops+" i "+i+" j "+j+" "+ray);
-      
+            
       // Air resistance for second triangle in quad
     }
   }
   */
   
   // Move sphere
-  PVector delta = sphereVelocity.copy(); //<>//
+  PVector delta = sphereVelocity.copy();
   delta.mult((float)dt);
   spherePosition.add(delta);
   delta = null;

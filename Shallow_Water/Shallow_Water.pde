@@ -12,7 +12,7 @@ double currentTime;
 double elapsedTime;
 
 double timeFactor = 100000.0;
-int loopCount = 50;
+int loopCount = 25;
 
 double g = 9.8;
 double dx = 1;
@@ -41,7 +41,7 @@ void setup() {
   size(1000,600,P3D);
 
   cam = new QueasyCam(this);
-  cam.speed = 1;
+  cam.speed = 0.5;
   
   // Set initial conditions of waves
   for (int i = 0; i < dimension; i++) {
@@ -136,7 +136,7 @@ void updateSim(double dt) {
       humz[i][j] = 0.5*(hu[i+1][j]+hu[i][j]) - 0.5*dt/dx*(hu[i+1][j]*hv[i+1][j]/h[i+1][j]-hu[i][j]*hv[i][j]/h[i][j]);
     }
   }
-   //<>//
+  
   // Full step with x midpoint
   for (int i = 0; i < dimension; i++) {
     for (int j = 1; j < dimension-1; j++) {

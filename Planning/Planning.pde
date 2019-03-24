@@ -3,7 +3,6 @@ import java.util.*;
 double previousTime;
 double currentTime;
 double elapsedTime;
-double timeFactor = 500.0;
 
 boolean paused = true;
 boolean debug = false;
@@ -32,6 +31,7 @@ GraphPoint goalGraphPoint;
 PVector ray = new PVector(0,0,0);
 PVector rayToCenter = new PVector(0,0,0);
 double dist = 0.0;
+double delta = 0.0;
 double a = 0;
 double b = 0;
 double c = 0;
@@ -277,12 +277,42 @@ boolean findPathUniformCost() {
     currentPoint = currentPoint.previous;
   }
   Collections.reverse(path);
+  agentPosition.set(path.get(0));
   currentPathNode = 0;
   return true;
 }
 
 void updateSim(double dt) {
+  delta = agentSpeed*dt;
   
+  while (delta > 0) {
+    dist = agentPosition.dist(path.get(currentPathNode));
+    // Check if delta would move agent past next point
+    if (delta >= dist) {
+      // Move agent to next point
+      agentPosition.set(path.get(currentPathNode));
+      
+      // Stop if goal has been reached
+      if (currentPathNode == pathLength-1) {
+        break;
+      } else {
+        // Calculate remaining movement distance
+        delta -= dist;
+        
+        // Change target to next node
+        currentPathNode++;
+      }
+    } else {
+      // Determine vector pointing from agent to next target point
+      ray.set(path.get(currentPathNode));
+      ray.sub(agentPosition);
+      
+      // Set displacement vector to correct magnitude
+      ray.setMag((float)delta);
+      agentPosition.add(ray);
+      break;
+    }
+  }
 }
 
 void drawSim() {
@@ -301,10 +331,6 @@ void drawSim() {
   noStroke();
   fill(255,0,0);
   ellipse(300,300,80,80);
-  
-  // Draw agent
-  fill(25,175,200);
-  ellipse(300+20*agentPosition.x,300-20*agentPosition.y,20,20);
     
   if (debug) {
     stroke(100);
@@ -314,7 +340,7 @@ void drawSim() {
     }
   }
   
-  // Draw Path TODO
+  // Draw Path
   pathLength = path.size();
   stroke(50,200,100);
   strokeWeight(2);
@@ -324,6 +350,11 @@ void drawSim() {
          300+20*path.get(i+1).x,
          300-20*path.get(i+1).y);
   }
+  
+  // Draw agent
+  noStroke();
+  fill(25,175,200);
+  ellipse(300+20*agentPosition.x,300-20*agentPosition.y,20,20);
   
   // Draw PRM
   strokeWeight(5);
@@ -341,17 +372,19 @@ void drawSim() {
 void draw() {
   background(75);
   
+  /**
   // Update time
   currentTime = millis();
   elapsedTime = currentTime - previousTime;
   previousTime = currentTime;
+  */
   
-  updateSim(elapsedTime/timeFactor);
+  updateSim(0.02);
   
   drawSim();
   
   // Benchmarking
-  // println("Frame Rate: " + frameRate);
+  println("Frame Rate: " + frameRate);
 }
 
 void keyPressed() {
@@ -364,7 +397,6 @@ void keyPressed() {
         makeGraph();
         validPath = findPathUniformCost();
       }
-      agentPosition.set(start);
       break;
     case 'p':
       paused = !paused;

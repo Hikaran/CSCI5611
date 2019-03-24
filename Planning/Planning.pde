@@ -72,9 +72,10 @@ void populatePRM() {
       ray.sub(obstaclePosition);
       
       // Change magnitude of ray
-      ray.setMag((float)dist);
+      ray.setMag((float)obstacleRadiusCSpace + 0.1);
       
       // Move point
+      p.set(obstaclePosition);
       p.add(ray);
     }
   }
@@ -146,6 +147,7 @@ void makeGraph() {
   graphPoints.clear();
   graphEdges.clear();
   
+  // Add edges from start/goal to randomized points
   GraphEdge newEdge;
   for (PVector p : points) {
     if (!testEdge(start,p)) {
@@ -161,7 +163,15 @@ void makeGraph() {
     }
   }
   
-  
+  // Add edges between randomized points
+  for (int i = 0; i < numPointsPRM - 1; i++) {
+    for (int j = i; j < numPointsPRM; j++) {
+      if (!testEdge(points.get(i),points.get(j))) {
+        newEdge = new GraphEdge(points.get(i),points.get(j));
+        graphEdges.add(newEdge);
+      }
+    }
+  }
 }
 
 // Find path through graph with Uniform Cost Search

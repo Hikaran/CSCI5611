@@ -7,6 +7,7 @@ double timeFactor = 500.0;
 
 boolean paused = true;
 boolean debug = false;
+boolean validPath = false;
 
 Random r = new Random();
 
@@ -17,11 +18,15 @@ PVector obstaclePosition = new PVector(0,0,0);
 double obstacleRadius = 2.0;
 double agentRadius = 0.5;
 double obstacleRadiusCSpace = obstacleRadius + agentRadius;
+double agentSpeed = 1.0;
 
-int numPointsPRM = 10;
+int numPointsPRM = 50;
 ArrayList<PVector> points; // PRM points
+ArrayList<PVector> path;
 ArrayList<GraphPoint> graphPoints; // PRM points including start and goal
 ArrayList<GraphEdge> graphEdges; // Valid PRM edges
+GraphPoint startGraphPoint;
+GraphPoint goalGraphPoint;
 
 // Helper variables
 PVector ray = new PVector(0,0,0);
@@ -33,6 +38,10 @@ double c = 0;
 double part = 0;
 double root = 0;
 double secondRoot = 0;
+double newCost = 0;
+int pathLength = 0;
+int currentPathNode = 0;
+GraphPoint dummy = new GraphPoint(new PVector(0,0,0));
 
 void setup() {
   size(600,600);
@@ -47,9 +56,13 @@ void setup() {
   graphPoints = new ArrayList<GraphPoint>();
   graphEdges = new ArrayList<GraphEdge>();
   
-  populatePRM();
-  makeGraph();
-  findPathUniformCost();
+  // Generate new graph and path
+  validPath = false;
+  while (validPath == false) {
+    populatePRM();
+    makeGraph();
+    validPath = findPathUniformCost();
+  }
   
   // Initialize time
   previousTime = millis();
@@ -81,22 +94,40 @@ void populatePRM() {
   }
 }
 
-class GraphPoint {
-  PVector position;
-  double cost = -1;
-  // Neighbors
+class GraphPoint implements Comparable<GraphPoint> {
+  PVector position = new PVector(0,0,0);
+  double cost;
+  ArrayList<GraphPoint> neighbors; // List of neighbors
+  GraphPoint previous;
   
+  GraphPoint(PVector p) {
+    this.position.set(p);
+    this.cost = -1;
+    this.neighbors = new ArrayList<GraphPoint>();
+    this.previous = null;
+  }
+  
+  void AddNeighbor(GraphPoint gp) {
+    this.neighbors.add(gp);
+  }
+  
+  @Override
+  public int compareTo(GraphPoint other) {
+    if (this.cost < other.cost) {
+      return -1;
+    } else {
+      return 1;
+    }
+  }
 }
 
 class GraphEdge {
   PVector first = new PVector(0,0,0);
   PVector second = new PVector(0,0,0);
-  double dist = 0;
   
   GraphEdge(PVector a, PVector b) {
     first.set(a);
     second.set(b);
-    dist = first.dist(second);
   }
   
   void Draw() {
@@ -147,27 +178,38 @@ void makeGraph() {
   graphPoints.clear();
   graphEdges.clear();
   
-  // Add edges from start/goal to randomized points
+  GraphPoint newPoint;
   GraphEdge newEdge;
+  
+  // Add start point to graph
+  startGraphPoint = new GraphPoint(start);
+  startGraphPoint.cost = 0;
+  graphPoints.add(startGraphPoint);
+  
+  // Add goal point to graph
+  goalGraphPoint = new GraphPoint(goal);
+  graphPoints.add(goalGraphPoint);
+  
+  // Add randomized points to graph
   for (PVector p : points) {
-    if (!testEdge(start,p)) {
-      // Add edge between start and point
-      newEdge = new GraphEdge(start,p);
-      graphEdges.add(newEdge);
-    }
-    
-    if (!testEdge(goal,p)) {
-      // Add edge between goal and point
-      newEdge = new GraphEdge(goal,p);
-      graphEdges.add(newEdge);
-    }
+    newPoint = new GraphPoint(p);
+    graphPoints.add(newPoint);
   }
   
-  // Add edges between randomized points
-  for (int i = 0; i < numPointsPRM - 1; i++) {
-    for (int j = i; j < numPointsPRM; j++) {
-      if (!testEdge(points.get(i),points.get(j))) {
-        newEdge = new GraphEdge(points.get(i),points.get(j));
+  GraphPoint first;
+  GraphPoint second;
+  // Add all edges to graph that do not go through obstacle in configuration space
+  for (int i = 0; i < numPointsPRM+1; i++) {
+    first = graphPoints.get(i);
+    for (int j = i+1; j < numPointsPRM+2; j++) {
+      second = graphPoints.get(j);
+      if (!testEdge(first.position,second.position)) {
+        // Set graph points as neighbors
+        first.AddNeighbor(second);
+        second.AddNeighbor(first);
+        
+        // Add edge to list
+        newEdge = new GraphEdge(first.position,second.position);
         graphEdges.add(newEdge);
       }
     }
@@ -175,10 +217,72 @@ void makeGraph() {
 }
 
 // Find path through graph with Uniform Cost Search
-void findPathUniformCost() {
+boolean findPathUniformCost() {  
+  // Initialize queue
+  PriorityQueue<GraphPoint> queue = new PriorityQueue<GraphPoint>();
+  
+  // Initialize list of explored points
+  ArrayList<GraphPoint> exploredPoints = new ArrayList<GraphPoint>();
+  
+  GraphPoint currentPoint = startGraphPoint;
+  while (!currentPoint.equals(goalGraphPoint)) {
+    // Add current point to explored list
+    exploredPoints.add(currentPoint);
+    
+    // Update each unexplored neighbor
+    for (GraphPoint p : currentPoint.neighbors) {
+      // Skip explored neighbors
+      if (exploredPoints.contains(p)) {
+        continue;
+      }
+      
+      // Calculate cost to reach neighbor
+      newCost = currentPoint.cost + currentPoint.position.dist(p.position);
+      
+      // Update neighbor and queue if new path is shortest path to neighbor
+      if (newCost < p.cost || p.cost == -1) {
+        // Remove neighbor from queue
+        queue.remove(p);
+        
+        // Update lowest cost
+        p.cost = newCost;
+        
+        // Set current point as new parent
+        p.previous = currentPoint;
+        
+        // Add neighbor back to queue
+        queue.offer(p);
+      }
+    }
+    
+    // Retrieve next point from queue
+    if (queue.peek() != null) {
+      currentPoint = queue.poll();
+    } else {
+      println("Unexpected null!");
+      break;
+    }
+  }
+  
+  // Make sure path reaches goal
+  if (!currentPoint.equals(goalGraphPoint)) {
+    println("Could not find path to goal");
+    return false;
+  }
+  
+  // Save path to global list
+  path = new ArrayList<PVector>();
+  while (currentPoint != null) {
+    path.add(currentPoint.position);
+    currentPoint = currentPoint.previous;
+  }
+  Collections.reverse(path);
+  currentPathNode = 0;
+  return true;
 }
 
 void updateSim(double dt) {
+  
 }
 
 void drawSim() {
@@ -201,6 +305,25 @@ void drawSim() {
   // Draw agent
   fill(25,175,200);
   ellipse(300+20*agentPosition.x,300-20*agentPosition.y,20,20);
+    
+  if (debug) {
+    stroke(100);
+    strokeWeight(1);
+    for (GraphEdge e : graphEdges) {
+      e.Draw();
+    }
+  }
+  
+  // Draw Path TODO
+  pathLength = path.size();
+  stroke(50,200,100);
+  strokeWeight(2);
+  for (int i = 0; i < pathLength-1; i++) {
+    line(300+20*path.get(i).x,
+         300-20*path.get(i).y,
+         300+20*path.get(i+1).x,
+         300-20*path.get(i+1).y);
+  }
   
   // Draw PRM
   strokeWeight(5);
@@ -213,17 +336,6 @@ void drawSim() {
   stroke(0,255,0);
   point(300+20*start.x,300-20*start.y);
   point(300+20*goal.x,300-20*goal.y);
-    
-  if (debug) {
-    stroke(100);
-    strokeWeight(1);
-    for (GraphEdge e : graphEdges) {
-      e.Draw();
-    }
-  }
-  
-  // Draw Path TODO
-
 }
 
 void draw() {
@@ -246,9 +358,12 @@ void keyPressed() {
   switch (key) {
     case ' ':
       // TODO Calculate reset time?
-      populatePRM();
-      makeGraph();
-      findPathUniformCost();
+      validPath = false;
+      while (validPath == false) {
+        populatePRM();
+        makeGraph();
+        validPath = findPathUniformCost();
+      }
       agentPosition.set(start);
       break;
     case 'p':

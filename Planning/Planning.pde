@@ -3,6 +3,7 @@ import java.util.*;
 double previousTime;
 double currentTime;
 double elapsedTime;
+double timeFactor = 500.0;
 
 boolean paused = true;
 boolean debug = false;
@@ -372,19 +373,18 @@ void drawSim() {
 void draw() {
   background(75);
   
-  /**
   // Update time
   currentTime = millis();
   elapsedTime = currentTime - previousTime;
   previousTime = currentTime;
-  */
   
-  updateSim(0.02);
+  if (!paused) {
+    updateSim(elapsedTime/timeFactor);
+    // Benchmarking
+    println("Frame Rate: " + frameRate);
+  }
   
   drawSim();
-  
-  // Benchmarking
-  println("Frame Rate: " + frameRate);
 }
 
 void keyPressed() {

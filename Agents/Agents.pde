@@ -11,7 +11,6 @@ boolean validPath = false;
 
 Random r = new Random();
 
-PVector obstaclePosition = new PVector(0,0,0);
 double obstacleRadius = 2.0;
 double agentRadius = 0.5;
 double obstacleRadiusCSpace = obstacleRadius + agentRadius;
@@ -19,7 +18,7 @@ double agentSpeed = 1.0;
 
 int numPointsPRM = 50;
 ArrayList<PVector> points; // PRM points
-//ArrayList<PVector> path;
+ArrayList<PVector> obstaclePositions;
 ArrayList<Agent> agents;
 ArrayList<GraphPoint> graphPoints; // PRM points including start and goal
 ArrayList<GraphEdge> graphEdges; // Valid PRM edges
@@ -54,6 +53,12 @@ void setup() {
   agents.add(thirdAgent);
   Agent fourthAgent = new Agent(new PVector(9,9,0), new PVector(-9,-9,0));
   agents.add(fourthAgent);
+  
+  // Initialize obstacles
+  obstaclePositions = new ArrayList<PVector>();
+  obstaclePositions.add(new PVector(0,0,0));
+  obstaclePositions.add(new PVector(-2,6,0));
+  obstaclePositions.add(new PVector(-3,-7,0));
   
   // Initialize list of PRM points
   points = new ArrayList<PVector>(numPointsPRM);
@@ -92,18 +97,20 @@ void populatePRM() {
     p.y = r.nextFloat()*19-9.5;
      
     // Keep points outside obstacles in configuration space
+    for (PVector obstaclePosition : obstaclePositions) {
     dist = obstacleRadiusCSpace - p.dist(obstaclePosition);
-    if (dist > 0) {
-      // Point ray in correct direction
-      ray.set(p);
-      ray.sub(obstaclePosition);
-      
-      // Change magnitude of ray
-      ray.setMag((float)obstacleRadiusCSpace + 0.1);
-      
-      // Move point
-      p.set(obstaclePosition);
-      p.add(ray);
+      if (dist > 0) {
+        // Point ray in correct direction
+        ray.set(p);
+        ray.sub(obstaclePosition);
+        
+        // Change magnitude of ray
+        ray.setMag((float)obstacleRadiusCSpace + 0.1);
+        
+        // Move point
+        p.set(obstaclePosition);
+        p.add(ray);
+      }
     }
   }
 }
@@ -178,37 +185,39 @@ class GraphEdge {
 }
 
 // Check if an edge between two points would go through an obstacle in configuration space
-// Assume both points are outside the obstacle and obstacle is circular
+// Assume both points are outside any obstacle all obstacles are circular
 boolean testEdge(PVector first, PVector second) {
-  // Determine ray pointing from first to second
-  ray.set(second);
-  ray.sub(first);
-  
-  // Determine ray pointing from first to center of circle
-  rayToCenter.set(first);
-  rayToCenter.sub(obstaclePosition);
-  
-  // Calculate quadratic coefficients
-  a = ray.dot(ray);
-  b = 2 * rayToCenter.dot(ray);
-  c = rayToCenter.dot(rayToCenter)-obstacleRadiusCSpace*obstacleRadiusCSpace;
-  
-  // No collision if all solutions are imaginary
-  part = b*b-4*a*c;
-  if (part < 0) {
-    return false;
-  }
-  
-  // Solve quadratic equation
-  part = sqrt((float)part);
-  root = (-b+part)/(2*a);
-  secondRoot = (-b-part)/(2*a);
-  
-  // Collision if either root falls between points
-  if (root > 0.0 && root < 1.0) {
-    return true;
-  } else if (secondRoot > 0.0 && secondRoot < 1.0) {
-    return true;
+  for (PVector obstaclePosition : obstaclePositions) {
+    // Determine ray pointing from first to second
+    ray.set(second);
+    ray.sub(first);
+    
+    // Determine ray pointing from first to center of circle
+    rayToCenter.set(first);
+    rayToCenter.sub(obstaclePosition);
+    
+    // Calculate quadratic coefficients
+    a = ray.dot(ray);
+    b = 2 * rayToCenter.dot(ray);
+    c = rayToCenter.dot(rayToCenter)-obstacleRadiusCSpace*obstacleRadiusCSpace;
+    
+    // No collision if all solutions are imaginary
+    part = b*b-4*a*c;
+    if (part < 0) {
+      continue;
+    }
+    
+    // Solve quadratic equation
+    part = sqrt((float)part);
+    root = (-b+part)/(2*a);
+    secondRoot = (-b-part)/(2*a);
+    
+    // Collision if either root falls between points
+    if (root > 0.0 && root < 1.0) {
+      return true;
+    } else if (secondRoot > 0.0 && secondRoot < 1.0) {
+      return true;
+    }
   }
   
   return false;
@@ -341,10 +350,12 @@ void drawSim() {
   vertex(500,100);
   endShape(CLOSE);
   
-  // Draw obstacle
+  // Draw obstacles
   noStroke();
   fill(255,0,0);
-  ellipse(300,300,80,80);
+  for (PVector obsPos : obstaclePositions) {
+    ellipse(300+20*obsPos.x,300-20*obsPos.y,40*(float)obstacleRadius,40*(float)obstacleRadius);
+  }
     
   if (debug) {
     stroke(100);

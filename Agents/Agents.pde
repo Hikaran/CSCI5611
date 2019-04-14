@@ -251,7 +251,7 @@ void makeGraph(Agent agent) {
   GraphEdge newEdge;
   
   // Add start point to graph
-  startGraphPoint = new GraphPoint(agent.start);
+  startGraphPoint = new GraphPoint(agent.position);
   startGraphPoint.cost = 0;
   graphPoints.add(startGraphPoint);
   
@@ -479,17 +479,6 @@ void updateSim(double dt) {
 }
 
 void drawSim() {
-  // Draw boundaries
-  fill(255);
-  strokeWeight(2.0);
-  stroke(0);
-  beginShape();
-  vertex(100,100);
-  vertex(100,500);
-  vertex(500,500);
-  vertex(500,100);
-  endShape(CLOSE);
-  
   // Draw obstacles
   noStroke();
   fill(255,0,0);
@@ -545,12 +534,7 @@ void drawSim() {
 }
 
 void draw() {
-  background(75);
-  
-  // Update time
-  //currentTime = millis();
-  //elapsedTime = currentTime - previousTime;
-  //previousTime = currentTime;
+  background(255);
   
   if (!paused) {
     updateSim(timeFactor);
@@ -570,6 +554,7 @@ void keyPressed() {
       // TODO Calculate reset time?
       populatePRM();
       for (Agent a : agents) {
+        a.position.set(a.start);
         makeGraph(a);
         a.validPath = findPathUniformCost(a);
       }
@@ -704,6 +689,12 @@ void mouseClicked() {
       PVector newPosition = secondClick.copy();
       obstaclePositions.add(newPosition);
       editMode = 0;
+      
+      // Replan paths
+      for (Agent a : agents) {
+        makeGraph(a);
+        a.validPath = findPathUniformCost(a);
+      }
       return;
     case 6: // Add obstacle
       firstClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
@@ -727,8 +718,7 @@ void mouseClicked() {
       }
       
       // Obstacle should be in bounds
-      if (firstClick.x > 8 || firstClick.x < -8 ||
-          firstClick.y > 8 || firstClick.y < -8) {
+      if (firstClick.x > 8 || firstClick.x < -8 || firstClick.y > 8 || firstClick.y < -8) {
         println("Obstacles should be placed within bounds");
         return;
       }
@@ -738,7 +728,10 @@ void mouseClicked() {
       editMode = 0;
       
       // Replan paths
-      
+      for (Agent a : agents) {
+        makeGraph(a);
+        a.validPath = findPathUniformCost(a);
+      }
       
       return;
     default:

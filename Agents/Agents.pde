@@ -14,7 +14,12 @@ Random r = new Random();
 double obstacleRadius = 2.0;
 double agentRadius = 0.5;
 double obstacleRadiusCSpace = obstacleRadius + agentRadius;
-double idealAgentSpeed = 5.0;
+double idealAgentSpeed = 4.0;
+double agentSensingRadius = 3.0;
+double obstacleSensingRadius = 5.0;
+double timeHorizonAgents = 4.0;
+double timeHorizonObstacles = 10.0;
+double maxAcceleration = 10.0;
 
 int numPointsPRM = 50;
 ArrayList<PVector> points; // PRM points
@@ -22,8 +27,6 @@ ArrayList<PVector> obstaclePositions;
 ArrayList<Agent> agents;
 ArrayList<GraphPoint> graphPoints; // PRM points including start and goal
 ArrayList<GraphEdge> graphEdges; // Valid PRM edges
-GraphPoint startGraphPoint;
-GraphPoint goalGraphPoint;
 
 // Helper variables
 PVector ray = new PVector(0,0,0);
@@ -39,8 +42,14 @@ double c = 0;
 double part = 0;
 double root = 0;
 double secondRoot = 0;
+double collisionTime = 0;
+double mag = 0;
 double newCost = 0;
 int pathLength = 0;
+Agent firstCollider;
+Agent secondCollider;
+GraphPoint startGraphPoint;
+GraphPoint goalGraphPoint;
 GraphPoint dummy = new GraphPoint(new PVector(0,0,0));
 
 void setup() {
@@ -355,8 +364,8 @@ double timeToAgentCollision(Agent firstAgent, Agent secondAgent) {
   }
   
   // Compute velocity differential
-  deltaV.set(firstAgent.position);
-  deltaV.sub(secondAgent.position);
+  deltaV.set(firstAgent.velocity);
+  deltaV.sub(secondAgent.velocity);
   
   // Compute a and b for quadratic equation
   a = deltaV.dot(deltaV);
@@ -379,17 +388,46 @@ double timeToAgentCollision(Agent firstAgent, Agent secondAgent) {
   return root;
 }
 
-void timeToObstacleCollision(Agent agent, PVector obstaclePosition) {
+double timeToObstacleCollision(Agent agent, PVector obstaclePosition) {
+  // Compute difference in positions
+  deltaX.set(agent.position);
+  deltaX.sub(obstaclePosition);
+  
+  // Compute c for quadratic equation
+  c = deltaX.dot(deltaX) - (agentRadius+obstacleRadius);
+  
+  // Check if agents already colliding
+  if (c < 0) {
+    return 0;
+  }
+  
+  // Compute velocity differential
+  deltaV.set(agent.velocity);
+  
+  // Compute a and b for quadratic equation
+  a = deltaV.dot(deltaV);
+  b = deltaX.dot(deltaV);
+  
+  // Return dummy value if no collision
+  part = b*b - a*c;
+  if (part <= 0) {
+    return -1;
+  }
+  
+  // Compute smaller root
+  root = (b - sqrt((float)part))/a;
+  
+  // Return dummy value if collision in past
+  if (root < 0) {
+    return -1;
+  }
+  
+  return root;
 }
 
 void updateSim(double dt) {
   // Compute acceleration from goal force for each agent
   for (Agent a : agents) {
-    // Skip if agent has reached final destination
-    if (a.finished) {
-      continue;
-    }
-    
     // Zero out acceleration
     a.acceleration.set(zeroVector);
 
@@ -407,25 +445,86 @@ void updateSim(double dt) {
     deltaV.sub(a.position);
     deltaV.setMag((float)idealAgentSpeed);
     deltaV.sub(a.velocity);
-    deltaV.mult(3);
+    deltaV.mult(2);
     a.acceleration.add(deltaV);
   }
   
   // Compute acceleration from avoidance behavior between each pair of agents based on TTC method
   int numAgents = agents.size();
   for (int i = 0; i < numAgents; i++) {
+    firstCollider = agents.get(i);
     for (int j = i+1; j < numAgents; j++) {
+      secondCollider = agents.get(j);
       
+      // Skip if agents are farther apart than sensing radius
+      if (firstCollider.position.dist(secondCollider.position) > agentSensingRadius) {
+        continue;
+      }
+      
+      collisionTime = timeToAgentCollision(firstCollider,secondCollider);
+      
+      // Skip collisions that do not occur in present or future
+      if (collisionTime >= 0) {
+        // Compute direction of force
+        ray.set(firstCollider.velocity);
+        ray.sub(secondCollider.velocity);
+        ray.mult((float)collisionTime);
+        ray.add(firstCollider.position);
+        ray.sub(secondCollider.position);
+        
+        // Compute magnitude of force
+        mag = 0;
+        if (collisionTime < timeHorizonAgents) {
+          mag = (timeHorizonAgents - collisionTime)/(collisionTime+0.001);
+          
+          if (mag > maxAcceleration) {
+            mag = maxAcceleration;
+          }
+        }
+        
+        ray.setMag((float)mag);
+        firstCollider.acceleration.add(ray);
+        secondCollider.acceleration.sub(ray);
+      }
+    }
+  }
+  
+  // Compute acceleration from avoidance behavior towards obstacles
+  for (Agent a : agents) {
+    for (PVector obstaclePosition : obstaclePositions) {      
+      // Skip if agents are farther apart than sensing radius
+      if (a.position.dist(obstaclePosition) > obstacleSensingRadius) {
+        continue;
+      }
+      
+      collisionTime = timeToObstacleCollision(a,obstaclePosition);
+      
+      // Skip collisions that do not occur in present or future
+      if (collisionTime >= 0) {
+        // Compute direction of force
+        ray.set(a.velocity);
+        ray.mult((float)collisionTime);
+        ray.add(a.position);
+        ray.sub(obstaclePosition);
+        
+        // Compute magnitude of force
+        mag = 0;
+        if (collisionTime < timeHorizonObstacles) {
+          mag = (timeHorizonObstacles - collisionTime)/(collisionTime+0.001);
+          
+          if (mag > maxAcceleration) {
+            mag = maxAcceleration;
+          }
+        }
+        
+        ray.setMag((float)mag);
+        a.acceleration.add(ray);
+      }
     }
   }
   
   // Update velocities and positions
   for (Agent a : agents) {
-    // Skip if agent is finished
-    if (a.finished) {
-      continue;
-    }
-    
     deltaV.set(a.acceleration);
     deltaV.mult((float)dt);
     a.velocity.add(deltaV);

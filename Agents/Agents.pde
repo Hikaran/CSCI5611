@@ -96,9 +96,10 @@ void setup() {
   println("Press P to toggle pausing");
   println("Press F to toggle framerate reporting");
   println("Press A to enter agent addition mode");
+  println("Press R to enter agent removal mode");
   println("Press O to enter obstacle addition mode");
+  println("Press K to enter obstacle removal mode");
   println("Press M to enter obstacle movement mode");
-  println("Press R to enter entity removal mode");
 }
 
 // Randomly select valid points in configuration space
@@ -597,6 +598,9 @@ void keyPressed() {
     case 'o': // Add obstacle
       editMode = 6;
       break;
+    case 'k': // Remove obstacle
+      editMode = 7;
+      break;
     default:
   }
 }
@@ -750,6 +754,26 @@ void mouseClicked() {
         a.validPath = findPathUniformCost(a);
       }
       
+      return;
+    case 7: // Select obstacle to remove
+      firstClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
+      
+      // Check which obstacle was selected
+      for (int i = 0; i < obstaclePositions.size(); i++) {
+        if (firstClick.dist(obstaclePositions.get(i)) < obstacleRadius) {
+          obstaclePositions.remove(i);
+          editMode = 0;
+          
+          // Replan paths
+          for (Agent a : agents) {
+          makeGraph(a);
+          a.validPath = findPathUniformCost(a);
+      }
+          return;
+        }
+      }
+      
+      println("Failed to find obstacle to remove");
       return;
     default:
       editMode = 0;

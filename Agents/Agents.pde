@@ -3,7 +3,7 @@ import java.util.*;
 double previousTime;
 double currentTime;
 double elapsedTime;
-double timeFactor = 500.0;
+double timeFactor = 1000;
 
 boolean paused = true;
 boolean debug = false;
@@ -14,7 +14,7 @@ Random r = new Random();
 double obstacleRadius = 2.0;
 double agentRadius = 0.5;
 double obstacleRadiusCSpace = obstacleRadius + agentRadius;
-double agentSpeed = 1.0;
+double idealAgentSpeed = 5.0;
 
 int numPointsPRM = 50;
 ArrayList<PVector> points; // PRM points
@@ -28,6 +28,9 @@ GraphPoint goalGraphPoint;
 // Helper variables
 PVector ray = new PVector(0,0,0);
 PVector rayToCenter = new PVector(0,0,0);
+PVector deltaX = new PVector(0,0,0);
+PVector deltaV = new PVector(0,0,0);
+PVector zeroVector = new PVector(0,0,0);
 double dist = 0.0;
 double delta = 0.0;
 double a = 0;
@@ -47,11 +50,11 @@ void setup() {
   agents = new ArrayList<Agent>();
   Agent firstAgent = new Agent(new PVector(-9,-9,0), new PVector(9,9,0));
   agents.add(firstAgent);
-  Agent secondAgent = new Agent(new PVector(9,-9,0), new PVector(-9,9,0));
+  Agent secondAgent = new Agent(new PVector(0,-9,0), new PVector(0,9,0));
   agents.add(secondAgent);
   Agent thirdAgent = new Agent(new PVector(-9,9,0), new PVector(9,-9,0));
   agents.add(thirdAgent);
-  Agent fourthAgent = new Agent(new PVector(9,9,0), new PVector(-9,-9,0));
+  Agent fourthAgent = new Agent(new PVector(9,0,0), new PVector(-9,0,0));
   agents.add(fourthAgent);
   
   // Initialize obstacles
@@ -75,12 +78,7 @@ void setup() {
   validPath = false;
   for (Agent a : agents) {
     makeGraph(a);
-    validPath = findPathUniformCost(a);
-    if (validPath == false) {
-      a.validPath = false;
-    } else {
-      a.validPath = true;
-    }
+    a.validPath = findPathUniformCost(a);
   }
   
   // Initialize time
@@ -118,19 +116,26 @@ void populatePRM() {
 class Agent {
   PVector position;
   PVector velocity;
+  PVector acceleration;
   PVector start;
   PVector goal;
   
   ArrayList<PVector> path;
   boolean validPath;
   boolean finished;
-  int targetNode;
+  int pathLength;
+  int currentTargetNode;
 
   Agent(PVector s, PVector g) {
     this.position = s.copy();
     this.velocity = new PVector(0,0,0);
+    this.acceleration = new PVector(0,0,0);
     this.start = s.copy();
     this.goal = g.copy();
+    this.pathLength = 0;
+    this.currentTargetNode = 0;
+    this.validPath = false;
+    this.finished = false;
   }
   
   void Draw() {
@@ -186,6 +191,7 @@ class GraphEdge {
 
 // Check if an edge between two points would go through an obstacle in configuration space
 // Assume both points are outside any obstacle all obstacles are circular
+// Returns true if edge intersects any obstacle
 boolean testEdge(PVector first, PVector second) {
   for (PVector obstaclePosition : obstaclePositions) {
     // Determine ray pointing from first to second
@@ -329,13 +335,104 @@ boolean findPathUniformCost(Agent agent) {
   }
   Collections.reverse(agent.path);
   agent.position.set(agent.path.get(0));
-  agent.targetNode = 0;
+  agent.finished = false;
+  agent.pathLength = agent.path.size();
+  agent.currentTargetNode = 1;
   return true;
 }
 
-void updateSim(double dt) {
-  delta = agentSpeed*dt;
+double timeToAgentCollision(Agent firstAgent, Agent secondAgent) {
+  // Compute difference in agent positions
+  deltaX.set(secondAgent.position);
+  deltaX.sub(firstAgent.position);
   
+  // Compute c for quadratic equation
+  c = deltaX.dot(deltaX) - 2*agentRadius;
+  
+  // Check if agents already colliding
+  if (c < 0) {
+    return 0;
+  }
+  
+  // Compute velocity differential
+  deltaV.set(firstAgent.position);
+  deltaV.sub(secondAgent.position);
+  
+  // Compute a and b for quadratic equation
+  a = deltaV.dot(deltaV);
+  b = deltaX.dot(deltaV);
+  
+  // Return dummy value if no collision
+  part = b*b - a*c;
+  if (part <= 0) {
+    return -1;
+  }
+  
+  // Compute smaller root
+  root = (b - sqrt((float)part))/a;
+  
+  // Return dummy value if collision in past
+  if (root < 0) {
+    return -1;
+  }
+  
+  return root;
+}
+
+void timeToObstacleCollision(Agent agent, PVector obstaclePosition) {
+}
+
+void updateSim(double dt) {
+  // Compute acceleration from goal force for each agent
+  for (Agent a : agents) {
+    // Skip if agent has reached final destination
+    if (a.finished) {
+      continue;
+    }
+    
+    // Zero out acceleration
+    a.acceleration.set(zeroVector);
+
+    // Smooth path by targeting farthest visible node
+    while (a.currentTargetNode < (a.pathLength-1)) {
+      // Check if next node is obstructed
+      if (testEdge(a.position, a.path.get(a.currentTargetNode+1))) {
+        break;
+      }
+      
+      a.currentTargetNode++;
+    }
+    
+    deltaV.set(a.path.get(a.currentTargetNode));
+    deltaV.sub(a.position);
+    deltaV.setMag((float)idealAgentSpeed);
+    deltaV.sub(a.velocity);
+    deltaV.mult(3);
+    a.acceleration.add(deltaV);
+  }
+  
+  // Compute acceleration from avoidance behavior between each pair of agents based on TTC method
+  int numAgents = agents.size();
+  for (int i = 0; i < numAgents; i++) {
+    for (int j = i+1; j < numAgents; j++) {
+      
+    }
+  }
+  
+  // Update velocities and positions
+  for (Agent a : agents) {
+    // Skip if agent is finished
+    if (a.finished) {
+      continue;
+    }
+    
+    deltaV.set(a.acceleration);
+    deltaV.mult((float)dt);
+    a.velocity.add(deltaV);
+    deltaX.set(a.velocity);
+    deltaX.mult((float)dt);
+    a.position.add(deltaX);
+  }
 }
 
 void drawSim() {
@@ -363,6 +460,8 @@ void drawSim() {
     for (GraphEdge e : graphEdges) {
       e.Draw();
     }
+    // Benchmarking
+    println("Frame Rate: " + frameRate);
   }
   
   // Draw Paths
@@ -414,8 +513,6 @@ void draw() {
   
   if (!paused) {
     updateSim(elapsedTime/timeFactor);
-    // Benchmarking
-    println("Frame Rate: " + frameRate);
   }
   
   drawSim();
@@ -429,12 +526,7 @@ void keyPressed() {
       validPath = false;
       for (Agent a : agents) {
         makeGraph(a);
-        validPath = findPathUniformCost(a);
-        if (validPath == false) {
-          a.validPath = false;
-        } else {
-          a.validPath = true;
-        }
+        a.validPath = findPathUniformCost(a);
       }
       break;
     case 'p':

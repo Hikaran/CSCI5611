@@ -10,7 +10,6 @@ boolean debug = false;
 boolean framerateEnabled = false;
 
 int editMode = 0;
-int clicksRequired = 0;
 
 Random r = new Random();
 
@@ -586,17 +585,15 @@ void keyPressed() {
       break;
     case 'a': // Add agent
       editMode = 1;
-      clicksRequired = 2;
       break;
     case 'r': // Remove agent
-      editMode = 2;
+      editMode = 3;
       break;
     case 'm': // Move obstacle
-      editMode = 3;
-      clicksRequired = 2;
+      editMode = 4;
       break;
     case 'o': // Add obstacle
-      editMode = 4;
+      editMode = 6;
       break;
     default:
   }
@@ -604,56 +601,51 @@ void keyPressed() {
 
 void mouseClicked() {
   switch (editMode) {
-    case 1: // Add agent
-      switch (clicksRequired) {
-        case 2:
-          // Set start
-          firstClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
-          
-          // Reject out of bounds start points
-          if (firstClick.x > 9.5 || firstClick.x < -9.5 || firstClick.y > 9.5 || firstClick.y < -9.5) {
-            println("Start point must be in bounds");
-            return;
-          }
-          
-          // Reject start points inside configuration space obstacles
-          for (PVector obstaclePosition : obstaclePositions) {
-            if (firstClick.dist(obstaclePosition) < obstacleRadiusCSpace) {
-              println("Cannot place agent start point inside obstacle");
-              return;
-            }
-          }
-          
-          println("New agent start position set");
-          clicksRequired = 1;
-          return;
-        case 1:
-          secondClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
-          
-          // Reject out of bounds goal points
-          if (secondClick.x > 9.5 || secondClick.x < -9.5 || secondClick.y > 9.5 || secondClick.y < -9.5) {
-            println("Goal point must be in bounds");
-            return;
-          }
-          
-          // Reject goal points inside obstacles
-          for (PVector obstaclePosition : obstaclePositions) {
-            if (secondClick.dist(obstaclePosition) < obstacleRadiusCSpace) {
-              println("Cannot place agent goal point inside obstacle");
-              return;
-            }
-          }
-          
-          Agent newAgent = new Agent(firstClick,secondClick);
-          makeGraph(newAgent);
-          newAgent.validPath = findPathUniformCost(newAgent);
-          agents.add(newAgent);
-          editMode = 0;
-          return;
-        default:
+    case 1: // Select new agent start point
+      // Set start
+      firstClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
+      
+      // Reject out of bounds start points
+      if (firstClick.x > 9.5 || firstClick.x < -9.5 || firstClick.y > 9.5 || firstClick.y < -9.5) {
+        println("Start point must be in bounds");
+        return;
       }
+      
+      // Reject start points inside configuration space obstacles
+      for (PVector obstaclePosition : obstaclePositions) {
+        if (firstClick.dist(obstaclePosition) < obstacleRadiusCSpace) {
+          println("Cannot place agent start point inside obstacle");
+          return;
+        }
+      }
+      
+      println("New agent start position set");
+      editMode = 2;
       return;
-    case 2: // Remove agent
+    case 2: // Select new agent goal point
+      secondClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
+      
+      // Reject out of bounds goal points
+      if (secondClick.x > 9.5 || secondClick.x < -9.5 || secondClick.y > 9.5 || secondClick.y < -9.5) {
+        println("Goal point must be in bounds");
+        return;
+      }
+      
+      // Reject goal points inside obstacles
+      for (PVector obstaclePosition : obstaclePositions) {
+        if (secondClick.dist(obstaclePosition) < obstacleRadiusCSpace) {
+          println("Cannot place agent goal point inside obstacle");
+          return;
+        }
+      }
+      
+      Agent newAgent = new Agent(firstClick,secondClick);
+      makeGraph(newAgent);
+      newAgent.validPath = findPathUniformCost(newAgent);
+      agents.add(newAgent);
+      editMode = 0;
+      return;
+    case 3: // Select agent to remove
       firstClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
 
       for (Agent a : agents) {
@@ -663,58 +655,57 @@ void mouseClicked() {
           return;
         }
       }
+      
+      println("Failed to find agent to remove");
       return;
-    
-    case 3: // Move obstacle
-      switch (clicksRequired) {
-        case 2:
-          firstClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
-          
-          // Check which obstacle was selected
-          for (int i = 0; i < obstaclePositions.size(); i++) {
-            if (firstClick.dist(obstaclePositions.get(i)) < obstacleRadius) {
-              println("Obstacle successfully selected");
-              obstacleToMove = i;
-              clicksRequired = 1;
-              return;
-            }
-          }
+    case 4: // Select obstacle to move
+      firstClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
+      
+      // Check which obstacle was selected
+      for (int i = 0; i < obstaclePositions.size(); i++) {
+        if (firstClick.dist(obstaclePositions.get(i)) < obstacleRadius) {
+          obstacleToMove = i;
+          editMode = 5;
+          println("Obstacle successfully selected");
           return;
-        case 1:
-          secondClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
-          
-          // Obstacle should not overlap any agent position, start, or goal
-          for (Agent a : agents) {
-            if (secondClick.dist(a.start) < obstacleRadiusCSpace ||
-                secondClick.dist(a.goal) < obstacleRadiusCSpace ||
-                secondClick.dist(a.position) < obstacleRadiusCSpace) {
-              println("Cannot place obstacle in position occupied by agent");
-              return;
-            }
-          }
-          
-          // Obstacle should not overlap another obstacle
-          for (int i = 0; i < obstaclePositions.size(); i++) {
-            if (i != obstacleToMove && secondClick.dist(obstaclePositions.get(i)) < obstacleRadius) {
-              println("Cannot place obstacle inside another obstacle");
-              return;
-            }
-          }
-          
-          // Obstacle should be in bounds
-          if (secondClick.x > 8 || secondClick.x < -8 ||
-              secondClick.y > 8 || secondClick.y < -8) {
-            println("Obstacles should be placed within bounds");
-            return;
-          }          
-          
-          obstaclePositions.get(obstacleToMove).set(secondClick);
-          editMode = 0;
-          return;
-        default:
+        }
       }
+      
+      println("Failed to find obstacle to move");
       return;
-    case 4: // Add obstacle
+    case 5: // Select new obstacle location
+      secondClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
+      
+      // Obstacle should not overlap any agent position, start, or goal
+      for (Agent a : agents) {
+        if (secondClick.dist(a.start) < obstacleRadiusCSpace ||
+            secondClick.dist(a.goal) < obstacleRadiusCSpace ||
+            secondClick.dist(a.position) < obstacleRadiusCSpace) {
+          println("Cannot place obstacle in position occupied by agent");
+          return;
+        }
+      }
+      
+      // Obstacle should not overlap another obstacle
+      for (int i = 0; i < obstaclePositions.size(); i++) {
+        if (i != obstacleToMove && (secondClick.dist(obstaclePositions.get(i)) < obstacleRadius*2)) {
+          println("Obstacle should not overlap another obstacle");
+          return;
+        }
+      }
+      
+      // Obstacle should be in bounds
+      if (secondClick.x > 8 || secondClick.x < -8 || secondClick.y > 8 || secondClick.y < -8) {
+        println("Obstacles should be placed within bounds");
+        return;
+      }          
+      
+      obstaclePositions.remove(obstacleToMove);
+      PVector newPosition = secondClick.copy();
+      obstaclePositions.add(newPosition);
+      editMode = 0;
+      return;
+    case 6: // Add obstacle
       firstClick.set((mouseX-300)/20.0,(mouseY-300)/-20.0,0);
       
       // Obstacle should not overlap any agent position, start, or goal
@@ -729,8 +720,8 @@ void mouseClicked() {
       
       // Obstacle should not overlap another obstacle
       for (PVector obstaclePosition : obstaclePositions) {
-        if (firstClick.dist(obstaclePosition) < obstacleRadius) {
-          println("Cannot place obstacle inside another obstacle");
+        if (firstClick.dist(obstaclePosition) < obstacleRadius*2) {
+          println("Obstacle should not overlap another obstacle");
           return;
         }
       }
@@ -742,9 +733,16 @@ void mouseClicked() {
         return;
       }
 
-      obstaclePositions.add(firstClick);
+      PVector newObstacle = firstClick.copy();
+      obstaclePositions.add(newObstacle);
       editMode = 0;
+      
+      // Replan paths
+      
+      
       return;
     default:
+      editMode = 0;
+      return;
   }
 }

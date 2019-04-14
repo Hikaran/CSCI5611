@@ -1,12 +1,13 @@
 import java.util.*;
 
-double previousTime;
-double currentTime;
-double elapsedTime;
-double timeFactor = 1000;
+//double previousTime;
+//double currentTime;
+//double elapsedTime;
+double timeFactor = 0.005;
 
 boolean paused = true;
 boolean debug = false;
+boolean framerateEnabled = false;
 boolean validPath = false;
 
 Random r = new Random();
@@ -14,11 +15,10 @@ Random r = new Random();
 double obstacleRadius = 2.0;
 double agentRadius = 0.5;
 double obstacleRadiusCSpace = obstacleRadius + agentRadius;
-double idealAgentSpeed = 4.0;
-double agentSensingRadius = 3.0;
-double obstacleSensingRadius = 5.0;
-double timeHorizonAgents = 4.0;
-double timeHorizonObstacles = 10.0;
+double idealAgentSpeed = 5.0;
+double agentSensingRadius = 5.0;
+double obstacleSensingRadius = 10.0;
+double timeHorizon = 3.0;
 double maxAcceleration = 10.0;
 
 int numPointsPRM = 50;
@@ -91,7 +91,7 @@ void setup() {
   }
   
   // Initialize time
-  previousTime = millis();
+  //previousTime = millis();
   
   // TODO calculate setup time?
 }
@@ -388,43 +388,6 @@ double timeToAgentCollision(Agent firstAgent, Agent secondAgent) {
   return root;
 }
 
-double timeToObstacleCollision(Agent agent, PVector obstaclePosition) {
-  // Compute difference in positions
-  deltaX.set(agent.position);
-  deltaX.sub(obstaclePosition);
-  
-  // Compute c for quadratic equation
-  c = deltaX.dot(deltaX) - (agentRadius+obstacleRadius);
-  
-  // Check if agents already colliding
-  if (c < 0) {
-    return 0;
-  }
-  
-  // Compute velocity differential
-  deltaV.set(agent.velocity);
-  
-  // Compute a and b for quadratic equation
-  a = deltaV.dot(deltaV);
-  b = deltaX.dot(deltaV);
-  
-  // Return dummy value if no collision
-  part = b*b - a*c;
-  if (part <= 0) {
-    return -1;
-  }
-  
-  // Compute smaller root
-  root = (b - sqrt((float)part))/a;
-  
-  // Return dummy value if collision in past
-  if (root < 0) {
-    return -1;
-  }
-  
-  return root;
-}
-
 void updateSim(double dt) {
   // Compute acceleration from goal force for each agent
   for (Agent a : agents) {
@@ -474,8 +437,8 @@ void updateSim(double dt) {
         
         // Compute magnitude of force
         mag = 0;
-        if (collisionTime < timeHorizonAgents) {
-          mag = (timeHorizonAgents - collisionTime)/(collisionTime+0.001);
+        if (collisionTime < timeHorizon) {
+          mag = (timeHorizon - collisionTime)/(collisionTime+0.0001);
           
           if (mag > maxAcceleration) {
             mag = maxAcceleration;
@@ -489,35 +452,13 @@ void updateSim(double dt) {
     }
   }
   
-  // Compute acceleration from avoidance behavior towards obstacles
+  // Obstacle avoidance force
   for (Agent a : agents) {
-    for (PVector obstaclePosition : obstaclePositions) {      
-      // Skip if agents are farther apart than sensing radius
-      if (a.position.dist(obstaclePosition) > obstacleSensingRadius) {
-        continue;
-      }
-      
-      collisionTime = timeToObstacleCollision(a,obstaclePosition);
-      
-      // Skip collisions that do not occur in present or future
-      if (collisionTime >= 0) {
-        // Compute direction of force
-        ray.set(a.velocity);
-        ray.mult((float)collisionTime);
-        ray.add(a.position);
-        ray.sub(obstaclePosition);
-        
-        // Compute magnitude of force
-        mag = 0;
-        if (collisionTime < timeHorizonObstacles) {
-          mag = (timeHorizonObstacles - collisionTime)/(collisionTime+0.001);
-          
-          if (mag > maxAcceleration) {
-            mag = maxAcceleration;
-          }
-        }
-        
-        ray.setMag((float)mag);
+    for (PVector obstaclePosition : obstaclePositions) {
+      ray.set(a.position);
+      ray.sub(obstaclePosition);
+      if (ray.mag() < obstacleSensingRadius) {
+        ray.setMag(5/(ray.mag()*ray.mag()+0.001));
         a.acceleration.add(ray);
       }
     }
@@ -559,8 +500,6 @@ void drawSim() {
     for (GraphEdge e : graphEdges) {
       e.Draw();
     }
-    // Benchmarking
-    println("Frame Rate: " + frameRate);
   }
   
   // Draw Paths
@@ -606,15 +545,20 @@ void draw() {
   background(75);
   
   // Update time
-  currentTime = millis();
-  elapsedTime = currentTime - previousTime;
-  previousTime = currentTime;
+  //currentTime = millis();
+  //elapsedTime = currentTime - previousTime;
+  //previousTime = currentTime;
   
   if (!paused) {
-    updateSim(elapsedTime/timeFactor);
+    updateSim(timeFactor);
   }
   
   drawSim();
+  
+  if (framerateEnabled) {
+    // Benchmarking
+    println("Frame Rate: " + frameRate);
+  }
 }
 
 void keyPressed() {
@@ -634,6 +578,8 @@ void keyPressed() {
     case 'b':
       debug = !debug;
       break;
+    case 'f':
+      framerateEnabled = !framerateEnabled;
     default:
   }
 }

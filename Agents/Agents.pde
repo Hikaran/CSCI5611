@@ -93,10 +93,12 @@ void setup() {
     a.validPath = findPathUniformCost(a);
   }
   
-  // Initialize time
-  //previousTime = millis();
-  
-  // TODO calculate setup time?
+  println("Press P to toggle pausing");
+  println("Press F to toggle framerate reporting");
+  println("Press A to enter agent addition mode");
+  println("Press O to enter obstacle addition mode");
+  println("Press M to enter obstacle movement mode");
+  println("Press R to enter entity removal mode");
 }
 
 // Randomly select valid points in configuration space
@@ -394,6 +396,11 @@ double timeToAgentCollision(Agent firstAgent, Agent secondAgent) {
 void updateSim(double dt) {
   // Compute acceleration from goal force for each agent
   for (Agent a : agents) {
+    // Skip agents without a valid path
+    if (!a.validPath) {
+      continue;
+    }
+    
     // Zero out acceleration
     a.acceleration.set(zeroVector);
 
@@ -457,6 +464,11 @@ void updateSim(double dt) {
   
   // Obstacle avoidance force
   for (Agent a : agents) {
+    // Skip agents without a valid path
+    if (!a.validPath) {
+      continue;
+    }
+    
     for (PVector obstaclePosition : obstaclePositions) {
       ray.set(a.position);
       ray.sub(obstaclePosition);
@@ -469,6 +481,11 @@ void updateSim(double dt) {
   
   // Update velocities and positions
   for (Agent a : agents) {
+    // Skip agents without a valid path
+    if (!a.validPath) {
+      continue;
+    }
+    
     deltaV.set(a.acceleration);
     deltaV.mult((float)dt);
     a.velocity.add(deltaV);

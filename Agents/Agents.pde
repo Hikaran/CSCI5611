@@ -463,7 +463,7 @@ void updateSim(double dt) {
     }
   }
   
-  // Obstacle avoidance force
+  // Obstacle avoidance forces
   for (Agent a : agents) {
     // Skip agents without a valid path
     if (!a.validPath) {
@@ -477,7 +477,7 @@ void updateSim(double dt) {
         ray.setMag(5/(ray.mag()*ray.mag()+0.001));
         a.acceleration.add(ray);
       }
-    }
+    }  
   }
   
   // Update velocities and positions
@@ -497,8 +497,17 @@ void updateSim(double dt) {
 }
 
 void drawSim() {
-  // Draw obstacles
+  // Draw boundaries
+  fill(255);
   noStroke();
+  beginShape();
+  vertex(100,100);
+  vertex(100,500);
+  vertex(500,500);
+  vertex(500,100);
+  endShape(CLOSE);
+  
+  // Draw obstacles
   fill(255,0,0);
   for (PVector obsPos : obstaclePositions) {
     ellipse(300+20*obsPos.x,300-20*obsPos.y,40*(float)obstacleRadius,40*(float)obstacleRadius);
@@ -552,7 +561,7 @@ void drawSim() {
 }
 
 void draw() {
-  background(255);
+  background(75);
   
   if (!paused) {
     updateSim(timeFactor);
